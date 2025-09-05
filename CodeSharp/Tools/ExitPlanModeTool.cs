@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text;
 using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
@@ -15,5 +16,18 @@ public class ExitPlanModeTool: ITool
     )
     {
         await Task.CompletedTask;
+        
+        if (string.IsNullOrWhiteSpace(plan))
+            return "Error: Plan cannot be empty";
+
+        // Format the plan for user approval
+        var result = new StringBuilder();
+        result.AppendLine("## Implementation Plan");
+        result.AppendLine();
+        result.AppendLine(plan);
+        result.AppendLine();
+        result.AppendLine("**Ready to proceed with implementation. Please confirm if you'd like me to proceed with this plan.**");
+        
+        return result.ToString();
     }
 }

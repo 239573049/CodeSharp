@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text;
 using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
@@ -14,6 +15,74 @@ public class TodoWriteTool : ITool
     )
     {
         await Task.CompletedTask;
+        
+        try
+        {
+            if (todos == null || todos.Length == 0)
+                return "Error: No todos provided";
+
+            // Validate todos
+            for (int i = 0; i < todos.Length; i++)
+            {
+                var todo = todos[i];
+                if (string.IsNullOrWhiteSpace(todo.Content))
+                    return $"Error: Todo {i + 1}: Content cannot be empty";
+            }
+
+            // Ensure only one task is in_progress at a time
+            var inProgressCount = todos.Count(t => t.State == TodoWriteStates.in_progress);
+            if (inProgressCount > 1)
+                return "Error: Only one todo can be in_progress at a time";
+
+            // Store todos in ToolStore
+            ToolStore.Store.Todos = todos.ToList();
+
+            // Generate summary
+            var result = new StringBuilder();
+            result.AppendLine("📝 **Todo List Updated**\n");
+
+            var pendingTodos = todos.Where(t => t.State == TodoWriteStates.pending).ToList();
+            var inProgressTodos = todos.Where(t => t.State == TodoWriteStates.in_progress).ToList();
+            var completedTodos = todos.Where(t => t.State == TodoWriteStates.completed).ToList();
+
+            if (inProgressTodos.Any())
+            {
+                result.AppendLine("🔄 **Currently Working On:**");
+                foreach (var todo in inProgressTodos)
+                {
+                    result.AppendLine($"- {todo.Content}");
+                }
+                result.AppendLine();
+            }
+
+            if (pendingTodos.Any())
+            {
+                result.AppendLine("⏳ **Pending Tasks:**");
+                for (int i = 0; i < pendingTodos.Count; i++)
+                {
+                    result.AppendLine($"{i + 1}. {pendingTodos[i].Content}");
+                }
+                result.AppendLine();
+            }
+
+            if (completedTodos.Any())
+            {
+                result.AppendLine("✅ **Completed Tasks:**");
+                foreach (var todo in completedTodos)
+                {
+                    result.AppendLine($"- {todo.Content}");
+                }
+                result.AppendLine();
+            }
+
+            result.AppendLine($"**Total: {todos.Length} tasks** ({completedTodos.Count} completed, {inProgressTodos.Count} in progress, {pendingTodos.Count} pending)");
+
+            return result.ToString().Trim();
+        }
+        catch (Exception ex)
+        {
+            return $"Error managing todos: {ex.Message}";
+        }
     }
 
     public class TodoWriteInput

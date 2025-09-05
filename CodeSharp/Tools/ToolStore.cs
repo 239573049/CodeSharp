@@ -17,5 +17,5 @@ public class ToolHolder
 {
     public ChatHistory ChatHistory { get; set; } = new();
 
-    public TodoWriteTool.TodoWriteInput TodoWriteInput { get; set; } = new();
+    public List<TodoWriteTool.TodoWriteInput> Todos { get; set; } = new();
 }
