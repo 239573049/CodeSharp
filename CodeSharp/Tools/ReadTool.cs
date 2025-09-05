@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text;
 using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
@@ -18,6 +19,55 @@ public class ReadTool: ITool
         int? limit
     )
     {
-        await Task.CompletedTask;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(file_path))
+                return "Error: File path cannot be empty";
+
+            if (!File.Exists(file_path))
+                return $"Error: File '{file_path}' does not exist";
+
+            var allLines = await File.ReadAllLinesAsync(file_path);
+            
+            if (allLines.Length == 0)
+                return "File is empty";
+
+            var startLine = offset ?? 1;
+            var maxLines = limit ?? 2000;
+            
+            // Validate parameters
+            if (startLine < 1)
+                startLine = 1;
+            
+            if (startLine > allLines.Length)
+                return $"Error: Start line {startLine} exceeds file length ({allLines.Length} lines)";
+
+            var endLine = Math.Min(startLine + maxLines - 1, allLines.Length);
+            var result = new StringBuilder();
+
+            for (int i = startLine - 1; i < endLine; i++)
+            {
+                var line = allLines[i];
+                // Truncate lines longer than 2000 characters
+                if (line.Length > 2000)
+                    line = line.Substring(0, 2000) + "... [truncated]";
+                
+                result.AppendLine($"{i + 1,6}→{line}");
+            }
+
+            return result.ToString();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return $"Error: Access denied to file '{file_path}'";
+        }
+        catch (IOException ex)
+        {
+            return $"Error reading file '{file_path}': {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 }

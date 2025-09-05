@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
@@ -49,7 +50,7 @@ public class BashOutputTool : ITool
                 
                 return string.Join('\n', filteredLines);
             }
-            catch (System.Text.RegularExpressions.RegexException ex)
+            catch (ArgumentException ex)
             {
                 return $"Invalid regex pattern: {ex.Message}";
             }

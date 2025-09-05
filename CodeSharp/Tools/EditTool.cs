@@ -19,5 +19,71 @@ public class EditTool : ITool
         bool replace_all = false
     )
     {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(file_path))
+                return "Error: File path cannot be empty";
+
+            if (!File.Exists(file_path))
+                return $"Error: File '{file_path}' does not exist";
+
+            if (string.IsNullOrEmpty(old_string))
+                return "Error: Old string cannot be empty";
+
+            if (old_string == new_string)
+                return "Error: Old string and new string must be different";
+
+            var content = await File.ReadAllTextAsync(file_path);
+
+            if (string.IsNullOrEmpty(content))
+                return "Error: File is empty";
+
+            if (!content.Contains(old_string))
+                return $"Error: Old string not found in file '{file_path}'";
+
+            string newContent;
+            int replacementCount = 0;
+
+            if (replace_all)
+            {
+                // Count occurrences
+                int index = 0;
+                while ((index = content.IndexOf(old_string, index)) != -1)
+                {
+                    replacementCount++;
+                    index += old_string.Length;
+                }
+                
+                newContent = content.Replace(old_string, new_string);
+            }
+            else
+            {
+                // Check if old_string appears more than once
+                var firstIndex = content.IndexOf(old_string);
+                var lastIndex = content.LastIndexOf(old_string);
+                
+                if (firstIndex != lastIndex)
+                    return $"Error: Old string appears multiple times in file. Use replace_all=true to replace all occurrences or provide a more specific context to make the replacement unique.";
+
+                newContent = content.Replace(old_string, new_string);
+                replacementCount = 1;
+            }
+
+            await File.WriteAllTextAsync(file_path, newContent);
+
+            return $"Successfully replaced {replacementCount} occurrence(s) in file '{file_path}'";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return $"Error: Access denied to file '{file_path}'";
+        }
+        catch (IOException ex)
+        {
+            return $"Error accessing file '{file_path}': {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 }

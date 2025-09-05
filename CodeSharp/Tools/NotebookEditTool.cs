@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text.Json;
 using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
@@ -24,6 +25,162 @@ public class NotebookEditTool: ITool
         string? edit_mode
     )
     {
-        await Task.CompletedTask;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(notebook_path))
+                return "Error: Notebook path cannot be empty";
+
+            if (!File.Exists(notebook_path))
+                return $"Error: Notebook file '{notebook_path}' does not exist";
+
+            if (!notebook_path.EndsWith(".ipynb", StringComparison.OrdinalIgnoreCase))
+                return "Error: File must be a Jupyter notebook (.ipynb)";
+
+            var mode = edit_mode?.ToLower() ?? "replace";
+            
+            if (mode == "delete" && string.IsNullOrWhiteSpace(cell_id))
+                return "Error: Cell ID is required for delete operation";
+
+            if (mode == "insert" && string.IsNullOrWhiteSpace(cell_type))
+                return "Error: Cell type is required for insert operation";
+
+            var jsonContent = await File.ReadAllTextAsync(notebook_path);
+            var notebook = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+            if (!notebook.TryGetProperty("cells", out var cellsProperty) || cellsProperty.ValueKind != JsonValueKind.Array)
+                return "Error: Invalid notebook format - missing or invalid 'cells' array";
+
+            var cells = cellsProperty.EnumerateArray().ToList();
+            var targetCellIndex = -1;
+
+            // Find target cell if cell_id is provided
+            if (!string.IsNullOrWhiteSpace(cell_id))
+            {
+                for (int i = 0; i < cells.Count; i++)
+                {
+                    if (cells[i].TryGetProperty("id", out var idProp) && idProp.GetString() == cell_id)
+                    {
+                        targetCellIndex = i;
+                        break;
+                    }
+                }
+
+                if (targetCellIndex == -1)
+                    return $"Error: Cell with ID '{cell_id}' not found";
+            }
+
+            var modifiedNotebook = new Dictionary<string, object>();
+            
+            // Copy all properties except cells
+            foreach (var prop in notebook.EnumerateObject())
+            {
+                if (prop.Name != "cells")
+                {
+                    modifiedNotebook[prop.Name] = System.Text.Json.JsonSerializer.Deserialize<object>(prop.Value.GetRawText()) ?? new object();
+                }
+            }
+
+            var newCells = new List<object>();
+
+            switch (mode)
+            {
+                case "replace":
+                    if (targetCellIndex == -1)
+                    {
+                        if (cells.Count == 0)
+                            return "Error: No cells found to replace";
+                        targetCellIndex = 0; // Replace first cell if no ID specified
+                    }
+
+                    for (int i = 0; i < cells.Count; i++)
+                    {
+                        if (i == targetCellIndex)
+                        {
+                            var cellDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(cells[i].GetRawText()) ?? new Dictionary<string, object>();
+                            cellDict["source"] = new_source.Split('\n');
+                            if (!string.IsNullOrWhiteSpace(cell_type))
+                                cellDict["cell_type"] = cell_type;
+                            newCells.Add(cellDict);
+                        }
+                        else
+                        {
+                            newCells.Add(System.Text.Json.JsonSerializer.Deserialize<object>(cells[i].GetRawText()) ?? new object());
+                        }
+                    }
+                    break;
+
+                case "insert":
+                    var newCell = new Dictionary<string, object>
+                    {
+                        ["cell_type"] = cell_type!,
+                        ["source"] = new_source.Split('\n'),
+                        ["metadata"] = new Dictionary<string, object>(),
+                        ["id"] = Guid.NewGuid().ToString()
+                    };
+
+                    if (cell_type == "code")
+                    {
+                        newCell["execution_count"] = default(object);
+                        newCell["outputs"] = new object[0];
+                    }
+
+                    var insertIndex = targetCellIndex == -1 ? 0 : targetCellIndex + 1;
+                    
+                    for (int i = 0; i < cells.Count; i++)
+                    {
+                        if (i == insertIndex)
+                        {
+                            newCells.Add(newCell);
+                        }
+                        newCells.Add(System.Text.Json.JsonSerializer.Deserialize<object>(cells[i].GetRawText()) ?? new object());
+                    }
+
+                    if (insertIndex >= cells.Count)
+                        newCells.Add(newCell);
+                    break;
+
+                case "delete":
+                    for (int i = 0; i < cells.Count; i++)
+                    {
+                        if (i != targetCellIndex)
+                        {
+                            newCells.Add(System.Text.Json.JsonSerializer.Deserialize<object>(cells[i].GetRawText()) ?? new object());
+                        }
+                    }
+                    break;
+
+                default:
+                    return $"Error: Invalid edit mode '{mode}'. Use 'replace', 'insert', or 'delete'";
+            }
+
+            modifiedNotebook["cells"] = newCells;
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+
+            var newJsonContent = System.Text.Json.JsonSerializer.Serialize(modifiedNotebook, options);
+            await File.WriteAllTextAsync(notebook_path, newJsonContent);
+
+            return $"Successfully {mode}d cell in notebook '{notebook_path}'";
+        }
+        catch (JsonException ex)
+        {
+            return $"Error: Invalid JSON in notebook file - {ex.Message}";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return $"Error: Access denied to notebook file '{notebook_path}'";
+        }
+        catch (IOException ex)
+        {
+            return $"Error accessing notebook file '{notebook_path}': {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 }

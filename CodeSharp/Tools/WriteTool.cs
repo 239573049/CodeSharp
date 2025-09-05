@@ -16,6 +16,47 @@ public class WriteTool : ITool
         string content
     )
     {
-        await Task.CompletedTask;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(file_path))
+                return "Error: File path cannot be empty";
+
+            if (!Path.IsPathRooted(file_path))
+                return "Error: File path must be absolute, not relative";
+
+            // Create directory if it doesn't exist
+            var directory = Path.GetDirectoryName(file_path);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            // Check if file exists and warn about overwrite
+            bool fileExists = File.Exists(file_path);
+            
+            // Write the file
+            await File.WriteAllTextAsync(file_path, content ?? string.Empty);
+
+            if (fileExists)
+                return $"File '{file_path}' overwritten successfully";
+            else
+                return $"File '{file_path}' created successfully";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return $"Error: Access denied to file '{file_path}'";
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return $"Error: Directory not found for file '{file_path}'";
+        }
+        catch (IOException ex)
+        {
+            return $"Error writing file '{file_path}': {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 }

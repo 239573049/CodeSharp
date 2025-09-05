@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 
@@ -17,18 +18,112 @@ public class MultiEditTool: ITool
         MultiEditInput[] edits
     )
     {
-        
+        try
+        {
+            if (string.IsNullOrWhiteSpace(file_path))
+                return "Error: File path cannot be empty";
+
+            if (edits == null || edits.Length == 0)
+                return "Error: No edits provided";
+
+            if (!File.Exists(file_path))
+                return $"Error: File '{file_path}' does not exist";
+
+            var content = await File.ReadAllTextAsync(file_path);
+            var originalContent = content;
+            var totalReplacements = 0;
+            var editResults = new List<string>();
+
+            // Validate all edits first
+            for (int i = 0; i < edits.Length; i++)
+            {
+                var edit = edits[i];
+                if (string.IsNullOrEmpty(edit.OldString))
+                    return $"Error: Edit {i + 1}: Old string cannot be empty";
+
+                if (edit.OldString == edit.NewString)
+                    return $"Error: Edit {i + 1}: Old string and new string must be different";
+            }
+
+            // Apply edits sequentially
+            for (int i = 0; i < edits.Length; i++)
+            {
+                var edit = edits[i];
+                
+                if (!content.Contains(edit.OldString))
+                {
+                    return $"Error: Edit {i + 1}: Old string not found in current file content";
+                }
+
+                int replacementCount = 0;
+
+                if (edit.ReplaceAll)
+                {
+                    // Count occurrences
+                    int index = 0;
+                    while ((index = content.IndexOf(edit.OldString, index)) != -1)
+                    {
+                        replacementCount++;
+                        index += edit.OldString.Length;
+                    }
+                    
+                    content = content.Replace(edit.OldString, edit.NewString);
+                }
+                else
+                {
+                    // Check if old_string appears more than once
+                    var firstIndex = content.IndexOf(edit.OldString);
+                    var lastIndex = content.LastIndexOf(edit.OldString);
+                    
+                    if (firstIndex != lastIndex)
+                    {
+                        return $"Error: Edit {i + 1}: Old string appears multiple times in file. Set replace_all=true to replace all occurrences or provide more specific context.";
+                    }
+
+                    content = content.Replace(edit.OldString, edit.NewString);
+                    replacementCount = 1;
+                }
+
+                totalReplacements += replacementCount;
+                editResults.Add($"Edit {i + 1}: Replaced {replacementCount} occurrence(s)");
+            }
+
+            // Write the final content
+            await File.WriteAllTextAsync(file_path, content);
+
+            var result = new StringBuilder();
+            result.AppendLine($"Successfully applied {edits.Length} edit(s) to file '{file_path}':");
+            foreach (var editResult in editResults)
+            {
+                result.AppendLine($"  - {editResult}");
+            }
+            result.AppendLine($"Total replacements: {totalReplacements}");
+
+            return result.ToString().Trim();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return $"Error: Access denied to file '{file_path}'";
+        }
+        catch (IOException ex)
+        {
+            return $"Error accessing file '{file_path}': {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 
     public class MultiEditInput
     {
-        [JsonPropertyName("new_string"), Description("The edited text to replace the old_string")]
-        public string OldString { get; set; }
+        [JsonPropertyName("old_string"), Description("The text to replace (must match the file contents exactly, including all whitespace and indentation)")]
+        public string OldString { get; set; } = string.Empty;
 
-        [JsonPropertyName("old_string"),
+        [JsonPropertyName("new_string"),
          Description(
-             "The text to replace (must match the file contents exactly, including all whitespace and indentation)")]
-        public string NewString { get; set; }
+             "The edited text to replace the old_string")]
+        public string NewString { get; set; } = string.Empty;
 
         [JsonPropertyName("replace_all"),
          Description("Replace all occurences of old_string. This parameter is optional and defaults to false.")]
