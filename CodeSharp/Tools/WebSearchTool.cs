@@ -363,13 +363,9 @@ public class WebSearchTool: ITool
     {
         try
         {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", 
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-            
             // DuckDuckGo Instant Answer API
             var url = $"https://api.duckduckgo.com/?q={Uri.EscapeDataString(query)}&format=json&no_html=1&skip_disambig=1";
-            var response = await httpClient.GetStringAsync(url);
+            var response = await HttpClientManager.SharedClient.GetStringAsync(url);
             var data = JsonSerializer.Deserialize<JsonElement>(response);
             
             var results = new List<SearchResultItem>();
@@ -407,11 +403,8 @@ public class WebSearchTool: ITool
     {
         try
         {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "CodeSharp/1.0");
-            
             var url = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(query)}&limit=5&sort=relevance";
-            var response = await httpClient.GetStringAsync(url);
+            var response = await HttpClientManager.SharedClient.GetStringAsync(url);
             var data = JsonSerializer.Deserialize<JsonElement>(response);
             
             var results = new List<SearchResultItem>();
@@ -455,10 +448,8 @@ public class WebSearchTool: ITool
     {
         try
         {
-            using var httpClient = new HttpClient();
-            
             var url = $"https://hn.algolia.com/api/v1/search?query={Uri.EscapeDataString(query)}&tags=story&hitsPerPage=3";
-            var response = await httpClient.GetStringAsync(url);
+            var response = await HttpClientManager.SharedClient.GetStringAsync(url);
             var data = JsonSerializer.Deserialize<JsonElement>(response);
             
             var results = new List<SearchResultItem>();
@@ -976,6 +967,45 @@ public class WebSearchTool: ITool
         bool IsAvailable { get; }
     }
 
+    // Shared HttpClient instances for better performance
+    public static class HttpClientManager
+    {
+        private static readonly Lazy<HttpClient> _sharedClient = new(() =>
+        {
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", 
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            client.DefaultRequestHeaders.Add("Accept", 
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            client.Timeout = TimeSpan.FromSeconds(30);
+            return client;
+        });
+
+        private static readonly Lazy<HttpClient> _bingClient = new(() =>
+        {
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "CodeSharp/1.0");
+            if (!string.IsNullOrEmpty(SearchAPIConfig.BingAPIKey))
+            {
+                client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", SearchAPIConfig.BingAPIKey);
+            }
+            client.Timeout = TimeSpan.FromSeconds(30);
+            return client;
+        });
+
+        private static readonly Lazy<HttpClient> _googleClient = new(() =>
+        {
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "CodeSharp/1.0");
+            client.Timeout = TimeSpan.FromSeconds(30);
+            return client;
+        });
+
+        public static HttpClient SharedClient => _sharedClient.Value;
+        public static HttpClient BingClient => _bingClient.Value;
+        public static HttpClient GoogleClient => _googleClient.Value;
+    }
+
     // Google Custom Search API implementation template
     public class GoogleSearchAPI : ISearchAPI
     {
@@ -989,14 +1019,13 @@ public class WebSearchTool: ITool
             
             try
             {
-                using var httpClient = new HttpClient();
                 var url = $"https://www.googleapis.com/customsearch/v1?" +
                          $"key={SearchAPIConfig.GoogleAPIKey}" +
                          $"&cx={SearchAPIConfig.GoogleSearchEngineId}" +
                          $"&q={Uri.EscapeDataString(query)}" +
                          $"&num={Math.Min(maxResults, 10)}";
                 
-                var response = await httpClient.GetStringAsync(url);
+                var response = await HttpClientManager.GoogleClient.GetStringAsync(url);
                 var searchData = JsonSerializer.Deserialize<JsonElement>(response);
                 
                 var results = new List<SearchResultItem>();
@@ -1056,14 +1085,11 @@ public class WebSearchTool: ITool
             
             try
             {
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", SearchAPIConfig.BingAPIKey);
-                
                 var url = $"https://api.bing.microsoft.com/v7.0/search?" +
                          $"q={Uri.EscapeDataString(query)}" +
                          $"&count={Math.Min(maxResults, 20)}";
                 
-                var response = await httpClient.GetStringAsync(url);
+                var response = await HttpClientManager.BingClient.GetStringAsync(url);
                 var searchData = JsonSerializer.Deserialize<JsonElement>(response);
                 
                 var results = new List<SearchResultItem>();
