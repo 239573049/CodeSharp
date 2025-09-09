@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Text;
 using Microsoft.SemanticKernel;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CodeSharp.Tools;
 
@@ -35,45 +37,24 @@ public class TodoWriteTool : ITool
             // Store todos in ToolStore
             ToolStore.Store.Todos = todos.ToList();
 
-            // Generate summary
+            // Build new standardized message and include JSON payload in a system reminder
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                // 中文
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            };
+            jsonOptions.Converters.Add(new JsonStringEnumConverter());
+
+            var todosJson = JsonSerializer.Serialize(todos, jsonOptions);
+
             var result = new StringBuilder();
-            result.AppendLine("📝 **Todo List Updated**\n");
-
-            var pendingTodos = todos.Where(t => t.State == TodoWriteStates.pending).ToList();
-            var inProgressTodos = todos.Where(t => t.State == TodoWriteStates.in_progress).ToList();
-            var completedTodos = todos.Where(t => t.State == TodoWriteStates.completed).ToList();
-
-            if (inProgressTodos.Any())
-            {
-                result.AppendLine("🔄 **Currently Working On:**");
-                foreach (var todo in inProgressTodos)
-                {
-                    result.AppendLine($"- {todo.Content}");
-                }
-                result.AppendLine();
-            }
-
-            if (pendingTodos.Any())
-            {
-                result.AppendLine("⏳ **Pending Tasks:**");
-                for (int i = 0; i < pendingTodos.Count; i++)
-                {
-                    result.AppendLine($"{i + 1}. {pendingTodos[i].Content}");
-                }
-                result.AppendLine();
-            }
-
-            if (completedTodos.Any())
-            {
-                result.AppendLine("✅ **Completed Tasks:**");
-                foreach (var todo in completedTodos)
-                {
-                    result.AppendLine($"- {todo.Content}");
-                }
-                result.AppendLine();
-            }
-
-            result.AppendLine($"**Total: {todos.Length} tasks** ({completedTodos.Count} completed, {inProgressTodos.Count} in progress, {pendingTodos.Count} pending)");
+            result.AppendLine("Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable");
+            result.AppendLine("<system-reminder>");
+            result.AppendLine("Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:");
+            result.AppendLine(todosJson);
+            result.AppendLine(". Continue on with the tasks at hand if applicable.");
+            result.AppendLine("</system-reminder>");
 
             return result.ToString().Trim();
         }
@@ -85,11 +66,29 @@ public class TodoWriteTool : ITool
 
     public class TodoWriteInput
     {
+        /// <summary>
+        /// 任务标题，简洁描述任务内容
+        /// </summary>
+        [JsonPropertyName("title")]
         public string Title { get; set; } = string.Empty;
 
+        /// <summary>
+        /// 任务状态，必须是 pending, in_progress, completed 之一
+        /// </summary>
+        [JsonPropertyName("state")]
         public TodoWriteStates State { get; set; } = TodoWriteStates.pending;
 
+        /// <summary>
+        /// 任务内容，使用命令式
+        /// </summary>
+        [JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// 进行中的形式
+        /// </summary>
+        [JsonPropertyName("activeForm")]
+        public string ActiveForm { get; set; } = string.Empty;
     }
 
     public enum TodoWriteStates

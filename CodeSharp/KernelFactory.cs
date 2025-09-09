@@ -20,6 +20,8 @@ public class KernelFactory
 
         kernelAction?.Invoke(kernel);
 
+        kernel.FunctionInvocationFilters.Add(new DefaultFunctionInvocationFilter());
+
         return kernel;
     }
 }

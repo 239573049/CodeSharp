@@ -5,7 +5,7 @@ using Microsoft.SemanticKernel;
 
 namespace CodeSharp.Tools;
 
-public class GrepTool: ITool
+public class GrepTool : ITool
 {
     public string Name => "Grep";
 
@@ -15,92 +15,94 @@ public class GrepTool: ITool
         [Description("The regular expression pattern to search for in file contents")]
         string pattern,
         [Description("File or directory to search in (rg PATH). Defaults to current working directory.")]
-        string? path = null,
+        string? path,
         [Description("Glob pattern to filter files (e.g. \"*.js\", \"*.{ts,tsx}\") - maps to rg --glob")]
-        string? glob = null,
+        string? glob,
         [Description(
             "Output mode: \"content\" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), \"files_with_matches\" shows file paths (supports head_limit), \"count\" shows match counts (supports head_limit). Defaults to \"files_with_matches\".")]
-        string? output_mode = null,
-        [Description(
-            "Number of lines to show before each match (rg -B). Requires output_mode: \"content\", ignored otherwise.")]
-        int? B = null,
-        [Description(
-            "Number of lines to show after each match (rg -A). Requires output_mode: \"content\", ignored otherwise.")]
-        int? A = null,
-        [Description(
-            "Number of lines to show before and after each match (rg -C). Requires output_mode: \"content\", ignored otherwise.")]
-        int? C = null,
-        [Description("Show line numbers in output (rg -n). Requires output_mode: \"content\", ignored otherwise.")]
-        bool n = false,
-        [Description("Case insensitive search (rg -i)")]
-        bool i = false,
-        [Description(
-            "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.")]
-        string? type = null,
-        [Description(
-            "Limit output to first N lines/entries, equivalent to \"| head -N\". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). When unspecified, shows all results from ripgrep.")]
-        int? head_limit = null,
-        [Description(
-            "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.")]
-        bool multiline = false
+        string? output_mode
+        // [Description(
+        //     "Number of lines to show before each match (rg -B). Requires output_mode: \"content\", ignored otherwise.")]
+        // int? B,
+        // [Description(
+        //     "Number of lines to show after each match (rg -A). Requires output_mode: \"content\", ignored otherwise.")]
+        // int? A,
+        // [Description(
+        //     "Limit output to first N lines/entries, equivalent to \"| head -N\". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). When unspecified, shows all results from ripgrep.")]
+        // int? head_limit,
+        // [Description(
+        //     "Number of lines to show before and after each match (rg -C). Requires output_mode: \"content\", ignored otherwise.")]
+        // int? C,
+        // [Description("Show line numbers in output (rg -n). Requires output_mode: \"content\", ignored otherwise.")]
+        // bool n = false,
+        // [Description("Case insensitive search (rg -i)")]
+        // bool i = false,
+        // [Description(
+        //     "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.")]
+        // string? type = null,
+        // [Description(
+        //     "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.")]
+        // bool multiline = false
     )
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(pattern))
-                return "Error: Pattern cannot be empty";
+            // if (string.IsNullOrWhiteSpace(pattern))
+            //     return "Error: Pattern cannot be empty";
+            //
+            // // Set defaults
+            // var searchPath = string.IsNullOrWhiteSpace(path) ? Environment.CurrentDirectory : path;
+            // var mode = string.IsNullOrWhiteSpace(output_mode) ? "files_with_matches" : output_mode.ToLower();
+            //
+            // // Validate output mode
+            // if (!new[] { "content", "files_with_matches", "count" }.Contains(mode))
+            //     return "Error: Invalid output_mode. Use 'content', 'files_with_matches', or 'count'";
+            //
+            // // Get files to search
+            // var filesToSearch = await GetFilesToSearchAsync(searchPath, glob, type);
+            //
+            // if (filesToSearch.Count == 0)
+            //     return "No files found matching the specified criteria";
+            //
+            // // Prepare regex
+            // var regexOptions = RegexOptions.Compiled;
+            // if (i) regexOptions |= RegexOptions.IgnoreCase;
+            // if (multiline) regexOptions |= RegexOptions.Singleline | RegexOptions.Multiline;
+            //
+            // Regex regex;
+            // try
+            // {
+            //     regex = new Regex(pattern, regexOptions);
+            // }
+            // catch (ArgumentException ex)
+            // {
+            //     return $"Error: Invalid regex pattern - {ex.Message}";
+            // }
+            //
+            // // Search files
+            // var results = new List<SearchResult>();
+            //
+            // foreach (var file in filesToSearch)
+            // {
+            //     try
+            //     {
+            //         var searchResult = await SearchFileAsync(file, regex, mode, A ?? 0, B ?? 0, C ?? 0, n, multiline);
+            //         if (searchResult != null && searchResult.HasMatches)
+            //         {
+            //             results.Add(searchResult);
+            //         }
+            //     }
+            //     catch (Exception)
+            //     {
+            //         // Skip files that can't be read (permissions, binary, etc.)
+            //         continue;
+            //     }
+            // }
+            //
+            // // Format output
+            // return FormatResults(results, mode, head_limit);
 
-            // Set defaults
-            var searchPath = string.IsNullOrWhiteSpace(path) ? Environment.CurrentDirectory : path;
-            var mode = string.IsNullOrWhiteSpace(output_mode) ? "files_with_matches" : output_mode.ToLower();
-            
-            // Validate output mode
-            if (!new[] { "content", "files_with_matches", "count" }.Contains(mode))
-                return "Error: Invalid output_mode. Use 'content', 'files_with_matches', or 'count'";
-
-            // Get files to search
-            var filesToSearch = await GetFilesToSearchAsync(searchPath, glob, type);
-            
-            if (filesToSearch.Count == 0)
-                return "No files found matching the specified criteria";
-
-            // Prepare regex
-            var regexOptions = RegexOptions.Compiled;
-            if (i) regexOptions |= RegexOptions.IgnoreCase;
-            if (multiline) regexOptions |= RegexOptions.Singleline | RegexOptions.Multiline;
-
-            Regex regex;
-            try
-            {
-                regex = new Regex(pattern, regexOptions);
-            }
-            catch (ArgumentException ex)
-            {
-                return $"Error: Invalid regex pattern - {ex.Message}";
-            }
-
-            // Search files
-            var results = new List<SearchResult>();
-            
-            foreach (var file in filesToSearch)
-            {
-                try
-                {
-                    var searchResult = await SearchFileAsync(file, regex, mode, A ?? 0, B ?? 0, C ?? 0, n, multiline);
-                    if (searchResult != null && searchResult.HasMatches)
-                    {
-                        results.Add(searchResult);
-                    }
-                }
-                catch (Exception)
-                {
-                    // Skip files that can't be read (permissions, binary, etc.)
-                    continue;
-                }
-            }
-
-            // Format output
-            return FormatResults(results, mode, head_limit);
+            return "";
         }
         catch (Exception ex)
         {
@@ -111,7 +113,7 @@ public class GrepTool: ITool
     private static Task<List<string>> GetFilesToSearchAsync(string searchPath, string? glob, string? type)
     {
         var files = new List<string>();
-        
+
         if (File.Exists(searchPath))
         {
             files.Add(searchPath);
@@ -144,7 +146,8 @@ public class GrepTool: ITool
         return Task.FromResult(files);
     }
 
-    private static async Task<SearchResult?> SearchFileAsync(string filePath, Regex regex, string mode, int after, int before, int context, bool showLineNumbers, bool multiline)
+    private static async Task<SearchResult?> SearchFileAsync(string filePath, Regex regex, string mode, int after,
+        int before, int context, bool showLineNumbers, bool multiline)
     {
         var content = await File.ReadAllTextAsync(filePath);
         var lines = content.Split('\n');
@@ -237,6 +240,7 @@ public class GrepTool: ITool
                 {
                     output.AppendLine(result.FilePath);
                 }
+
                 break;
 
             case "count":
@@ -244,6 +248,7 @@ public class GrepTool: ITool
                 {
                     output.AppendLine($"{result.FilePath}: {result.MatchCount}");
                 }
+
                 break;
 
             case "content":
@@ -268,9 +273,11 @@ public class GrepTool: ITool
                             totalOutputLines++;
                         }
                     }
+
                     output.AppendLine();
                     totalOutputLines++;
                 }
+
                 break;
         }
 
@@ -320,9 +327,12 @@ public class GrepTool: ITool
             if (string.IsNullOrEmpty(extension)) return false;
 
             // Common binary file extensions to skip
-            var binaryExtensions = new[] { ".exe", ".dll", ".bin", ".zip", ".rar", ".7z", ".tar", ".gz",
+            var binaryExtensions = new[]
+            {
+                ".exe", ".dll", ".bin", ".zip", ".rar", ".7z", ".tar", ".gz",
                 ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".svg", ".pdf", ".doc", ".docx",
-                ".xls", ".xlsx", ".ppt", ".pptx", ".mp3", ".mp4", ".avi", ".mov", ".wmv" };
+                ".xls", ".xlsx", ".ppt", ".pptx", ".mp3", ".mp4", ".avi", ".mov", ".wmv"
+            };
 
             return !binaryExtensions.Contains(extension);
         }

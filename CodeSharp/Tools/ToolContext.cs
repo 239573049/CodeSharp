@@ -1,4 +1,8 @@
-﻿using Microsoft.SemanticKernel;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.SemanticKernel;
+
+#pragma warning disable SKEXP0120
 
 namespace CodeSharp.Tools;
 
@@ -7,7 +11,7 @@ public static class ToolContext
     private static readonly string[] AllToolNames =
     [
         "Bash",
-        "BashOutput", 
+        "BashOutput",
         "Edit",
         "ExitPlanMode",
         "Glob",
@@ -51,34 +55,23 @@ public static class ToolContext
         this IKernelBuilder builder,
         string[]? functionNames = null)
     {
-        var plugins = GetFunctions(functionNames);
+        var toolNames = functionNames ?? AllToolNames;
 
-        foreach (var plugin in plugins)
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerOptions.Web)
         {
-            builder.Plugins.Add(plugin);
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // 中文乱码
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            // 枚举
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+
+        foreach (var plugin in toolNames)
+        {
+            var tool = CreateToolInstance(plugin);
+            builder.Plugins.AddFromObject(tool, jsonOptions, plugin);
         }
 
         return builder;
-    }
-
-    public static List<KernelPlugin> GetFunctions(string[]? functionNames = null)
-    {
-        var functions = new List<KernelPlugin>();
-
-        // 如果没有指定工具名称，则使用所有可用的工具
-        var toolNames = functionNames ?? AllToolNames;
-
-        foreach (var functionName in toolNames)
-        {
-            var tool = CreateToolInstance(functionName);
-            if (tool != null)
-            {
-                // 将新创建的工具实例转换为KernelPlugin并添加到函数列表
-                var plugin = KernelPluginFactory.CreateFromObject(tool, tool.Name);
-                functions.Add(plugin);
-            }
-        }
-
-        return functions;
     }
 }
